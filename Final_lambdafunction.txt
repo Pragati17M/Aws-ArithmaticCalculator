@@ -1,0 +1,60 @@
+# import the JSON utility package
+import json
+# import the Python math library
+import math
+
+# import the AWS SDK (for Python the package name is boto3)
+import boto3
+# import two packages to help us with dates and date formatting
+from time import gmtime, strftime
+
+# create a DynamoDB object using the AWS SDK
+dynamodb = boto3.resource('dynamodb')
+# use the DynamoDB object to select our table
+table = dynamodb.Table('MathFunction')
+# store the current time in a human readable format in a variable
+now = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+
+# define the handler function that the Lambda service will use as an entry point
+def lambda_handler(event, context):
+    # extract the operation and numbers from the Lambda service's event object
+    operation = event.get('operation')
+    num1 = float(event.get('num1'))
+    num2 = float(event.get('num2'))
+
+    # perform the requested operation
+    if operation == 'power':
+        result = math.pow(num1, num2)
+    elif operation == 'add':
+        result = num1 + num2
+    elif operation == 'subtract':
+        result = num1 - num2
+    elif operation == 'multiply':
+        result = num1 * num2
+    elif operation == 'divide':
+        # handle division by zero
+        if num2 != 0:
+            result = num1 / num2
+        else:
+            return {
+                'statusCode': 400,
+                'body': json.dumps('Error: Division by zero is not allowed')
+            }
+    else:
+        return {
+            'statusCode': 400,
+            'body': json.dumps('Error: Invalid operation')
+        }
+
+    # write result and time to the DynamoDB table using the object we instantiated and save response in a variable
+    response = table.put_item(
+        Item={
+            'ID': str(result),
+            'LatestGreetingTime': now
+        })
+
+    # return a properly formatted JSON object
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Your result is ' + str(result))
+    }
